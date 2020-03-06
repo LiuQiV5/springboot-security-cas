@@ -1,13 +1,12 @@
 package com.itheima.demo.security;
 
 import com.itheima.demo.properties.CasProperties;
+import lombok.AllArgsConstructor;
 import org.jasig.cas.client.session.SingleSignOutFilter;
-import org.jasig.cas.client.validation.Cas20ServiceTicketValidator;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jasig.cas.client.validation.Cas30ServiceTicketValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.cas.ServiceProperties;
-import org.springframework.security.cas.authentication.CasAssertionAuthenticationToken;
 import org.springframework.security.cas.authentication.CasAuthenticationProvider;
 import org.springframework.security.cas.web.CasAuthenticationEntryPoint;
 import org.springframework.security.cas.web.CasAuthenticationFilter;
@@ -16,7 +15,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.userdetails.AuthenticationUserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 
@@ -25,25 +24,17 @@ import com.itheima.demo.custom.CustomUserDetailsService;
 @Configuration
 @EnableWebSecurity //启用web权限
 @EnableGlobalMethodSecurity(prePostEnabled = true) //启用方法验证
+@AllArgsConstructor
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
-	@Autowired
-	private CasProperties casProperties;
+
+	private final CasProperties casProperties;
+
+	private final CustomUserDetailsService customUserDetailsService;
 	/**定义认证用户信息获取来源，密码校验规则等*/
 	@Override
 	protected void configure(AuthenticationManagerBuilder auth) throws Exception {
 		super.configure(auth);
 		auth.authenticationProvider(casAuthenticationProvider());
-		//inMemoryAuthentication 从内存中获取
-		//auth.inMemoryAuthentication().withUser("chengli").password("123456").roles("USER")
-		//.and().withUser("admin").password("123456").roles("ADMIN");
-		
-		//jdbcAuthentication从数据库中获取，但是默认是以security提供的表结构
-		//usersByUsernameQuery 指定查询用户SQL
-		//authoritiesByUsernameQuery 指定查询权限SQL
-		//auth.jdbcAuthentication().dataSource(dataSource).usersByUsernameQuery(query).authoritiesByUsernameQuery(query);
-		
-		//注入userDetailsService，需要实现userDetailsService接口
-		//auth.userDetailsService(userDetailsService);
 	}
 	
 	/**定义安全策略*/
@@ -62,12 +53,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 		 * 执行顺序为
 		 * LogoutFilter-->SingleSignOutFilter-->CasAuthenticationFilter-->ExceptionTranslationFilter
 		 */
-		http.exceptionHandling().authenticationEntryPoint(casAuthenticationEntryPoint())
-			.and()
-			.addFilter(casAuthenticationFilter())
-			.addFilterBefore(casLogoutFilter(), LogoutFilter.class)
-			.addFilterBefore(singleSignOutFilter(), CasAuthenticationFilter.class);
-		//http.csrf().disable();
+		http
+                .exceptionHandling().authenticationEntryPoint(casAuthenticationEntryPoint())
+			    .and()
+			    .addFilter(casAuthenticationFilter())
+			    .addFilterBefore(casLogoutFilter(), LogoutFilter.class)
+			    .addFilterBefore(singleSignOutFilter(), CasAuthenticationFilter.class);
+		http.csrf().disable();
 	}
 	
 	/**  认证的入口，即跳转至服务端的cas地址
@@ -100,7 +92,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 		casAuthenticationFilter.setFilterProcessesUrl(casProperties.getAppLoginUrl());
 		return casAuthenticationFilter;
 	}
-	
+
+
 	/**    cas 认证 Provider
 	 *    TicketValidator、AuthenticationUserDetailService属性必须设置;
 	 *    serviceProperties属性主要应用于ticketValidator用于去cas服务端检验ticket
@@ -108,25 +101,21 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 	@Bean
 	public CasAuthenticationProvider casAuthenticationProvider() {
 		CasAuthenticationProvider casAuthenticationProvider = new CasAuthenticationProvider();
-		casAuthenticationProvider.setAuthenticationUserDetailsService(customUserDetailsService());
+		casAuthenticationProvider.setAuthenticationUserDetailsService(customUserDetailsService);
 		//应用于ticketValidator用于去cas服务端检验ticket
 		casAuthenticationProvider.setServiceProperties(serviceProperties());
-		casAuthenticationProvider.setTicketValidator(cas20ServiceTicketValidator());
+		casAuthenticationProvider.setTicketValidator(cas30ServiceTicketValidator());
 		casAuthenticationProvider.setKey("casAuthenticationProviderKey");
 		return casAuthenticationProvider;
 	}
-	/**用户自定义的AuthenticationUserDetailsService*/
-	@Bean
-	public AuthenticationUserDetailsService<CasAssertionAuthenticationToken> customUserDetailsService(){
-		return new CustomUserDetailsService();
-	}
-	/*
-	     配置ticket校验器
+
+	/**
+	 *  配置ticket校验器
 	 */
 	@Bean
-	public Cas20ServiceTicketValidator cas20ServiceTicketValidator() {
+	public Cas30ServiceTicketValidator cas30ServiceTicketValidator() {
 		//配置上服务端的校验ticket地址
-		return new Cas20ServiceTicketValidator(casProperties.getCasServerUrl());
+		return new Cas30ServiceTicketValidator(casProperties.getCasServerUrl());
 	}
 	
 	/** 单点登出过滤器

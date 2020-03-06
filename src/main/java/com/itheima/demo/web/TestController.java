@@ -1,6 +1,11 @@
 package com.itheima.demo.web;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.cas.authentication.CasAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -11,8 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class TestController {
 
     @RequestMapping("/")
-    public String index() {
-        return "访问了首页哦";
+    public UserDetails index() {
+        CasAuthenticationToken casAuthenticationToken = null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof CasAuthenticationToken) {
+            casAuthenticationToken = (CasAuthenticationToken) authentication;
+        }
+        return ObjectUtils.isEmpty(casAuthenticationToken)?null:casAuthenticationToken.getUserDetails();
     }
 
     @RequestMapping("/hello")
